@@ -1,0 +1,311 @@
+<!DOCTYPE html> 
+<html>
+
+<head>
+  <title>Cism Compiler</title>
+  <meta name="description" content="website description" />
+  <meta name="keywords" content="website keywords, website keywords" />
+  <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
+  <link rel="stylesheet" type="text/css" href="css/style.css" />
+  <!-- modernizr enables HTML5 elements and feature detects -->
+  <script type="text/javascript" src="js/modernizr-1.5.min.js"></script>
+</head>
+
+<body>
+  <div id="main">		
+
+    <header>
+	  <div id="strapline">
+	    <div id="welcome_slogan">
+	      <h3>Welcome To CISM <span>Compiler</span></h3>
+	    </div><!--close welcome_slogan-->
+      </div><!--close strapline-->	  
+	  <nav>
+	    <div id="menubar">
+          <ul id="nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="introduction.html">Introduction</a></li>
+            <li><a href="sin.html">Single Digit Math</a></li>
+            <li><a href="combinators.html">Combinators</a></li>
+            <li class="current"><a href="more.html">More than addition</a></li>
+            <li><a href="contact.html">Contact Us</a></li>
+          </ul>
+        </div><!--close menubar-->	
+      </nav>
+    </header>
+    
+
+	<div id="site_content">		
+	  
+	  <div class="sidebar_container">       
+		<div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Let's build a compiler</h2>
+            <p>When looking for information on getting started with learning how to build an interpreter or compiler, inevitable two resources come up. First, the canonical compiler resource, the Dragon Book, and second, Let's Build a Compiler (LBaC) by Jack W. Crenshaw.</p>
+          </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->     		
+		<div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Latest Update</h2>
+            <h3>May 2017</h3>
+            <p>Pascal used to be cool back at 90s, programming is evolving each and everyday</p>         
+		  </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->		
+        <div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Contact</h2>
+            <p>Phone: +2771 078 3650</p>
+            <p>Email: <a href="mailto:nwumafconfessions@gmail.com">nwumafconfessions@gmail.com</a></p>
+          </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->
+       </div><!--close sidebar_container-->	
+	   
+	  <div id="content">
+        <div class="content_item">
+		  <h1 id="more-than-addition">More than addition</h1>
+
+<p>Introducing multiplication and division into out compiler means that we have to think about operator precedence if we want our language implementation to adhere to the general conventions of math. We all know from basic math that <code>1+2*3</code> should be interpreted as <code>1+(2*3)</code>.  </p>
+
+<p>As it turns out, there is a rather simple trick to this - define <code>term</code> in terms of multiplication.</p>
+
+<pre><code>&lt;term&gt; := &lt;factor&gt;[&lt;mulop&gt;&lt;factor&gt;]*
+</code></pre>
+
+<p>Now we call a single digit a <code>factor</code>, and a <code>term</code> is any result of a multiplication operation involving these factors.  What this effectively means is that all multiplication has happened before we get to addition, and thus operator precedence is preserved.</p>
+
+<p>Before we start implementing this we will need some new data constructors to handle the <code>Mul</code> and <code>Div</code>. We can extend the existing <code>Expression</code> quite simply.  We'll also need a <code>mulOp</code> similar to <code>addOp</code>. </p>
+
+<pre><code class="language-Haskell">data Expression = 
+  Num Char 
+  | Add Expression Expression
+  | Sub Expression Expression
+  | Mul Expression Expression
+  | Div Expression Expression
+  deriving (Show) 
+
+mulOp :: Parser (Expression -&gt; Expression -&gt; Expression)
+mulOp = literal '*' &gt;&gt;&gt; (\_ -&gt; Mul)
+    &lt;|&gt; literal '/' &gt;&gt;&gt; (\_ -&gt; Div)
+</code></pre>
+
+<p>Factor is our new jargon for single digits so we can simply rename <code>term</code> to <code>factor</code>.  We then need to define a new <code>term</code> that looks very similar to <code>expression</code>.</p>
+
+<pre><code class="language-Haskell">term :: Parser Expression
+term = factor +&gt; term'
+term' e = mulOp &lt;+&gt; term &gt;&gt;&gt; buildOp e +&gt; term'
+      &lt;|&gt; result e
+
+factor :: Parser Expression
+factor = digit &gt;&gt;&gt; Num
+</code></pre>
+
+<p>And that's really all we need to do.  We now have the four basic math operators obeying the laws of operator precedence.  A little play in <code>GHCi</code> shows that the stack is built correctly - multiplication before addition moving left to right.</p>
+
+<pre><code>*Main&gt; expression "1+7*3"
+Just (Add (Num '1') (Mul (Num '7') (Num '3')),"")
+*Main&gt; expression "1+7*3-4"
+Just (Sub (Add (Num '1') (Mul (Num '7') (Num '3'))) (Num '4'),"")
+</code></pre>
+
+<h2 id="more-operator-precedence">More operator precedence</h2>
+
+<p>The precedence between <code>mulOp</code> and <code>addOp</code> fell out due to the way we defined our expressions. Left associativety, i.e. strings such as "8/4/2" should be parsed as "(8/4)/2" and not "8/(4/2)", was due to the way we defined <code>buildOp</code>.  We could confuse everyone and create a right associative expression parser simply by changing the order of the expressions in <code>buildOp</code>. We won't because we are nice, but it's nice to know we can.</p>
+
+<p>But what about when you really do mean "8/(4/2)"? In regular math we need to use parentheses, and we shall follow conventions here too. With a bit of knowledge and thinking, you might realise that a parenthesised expression can be considered to be a factor, giving us a new definition for factor:</p>
+
+<pre><code>&lt;factor&gt; ::= &lt;number&gt;|(&lt;expression&gt;)
+</code></pre>
+
+<p>This is surprisingly easy now.</p>
+
+<pre><code class="language-Haskell">factor :: Parser Expression
+factor = digit &gt;&gt;&gt; Num 
+     &lt;|&gt; literal '(' &lt;-+&gt; expression &lt;+-&gt; literal ')'
+</code></pre>
+
+<p>And checking it we can see that parenthesised expressions take precedence.</p>
+
+<pre><code class="language-Haskell">*Main&gt; expression "1+7*3-4"
+Just (Sub (Add (Num '1') (Mul (Num '7') (Num '3'))) (Num '4'),"")
+*Main&gt; expression "1+7*(3-4)"
+Just (Add (Num '1') (Mul (Num '7') (Sub (Num '3') (Num '4'))),"")
+</code></pre>
+
+<h2 id="more-than-single-digits">More than single digits</h2>
+
+<p>We've been working on the assumption that everything is a single character because it kept things easy.  However, with our new techniques, it is not very hard at all to extend this to multi-characters.</p>
+
+<p>Looking at variables first, if we extend them to be any number of letters we would write it as:</p>
+
+<pre><code class="language-Haskell">letters :: Parser String
+letters :: iter letter
+</code></pre>
+
+<p><code>iter</code> is a function that iterates over the input string until 'letter' fails, joining the results as we go.</p>
+
+<pre><code class="language-Haskell">iter :: Parser a -&gt; Parser [a]
+iter m = m &lt;+&gt; iter m &gt;&gt;&gt; (\(x, y) -&gt; x:y) 
+	 &lt;|&gt; result []
+</code></pre>
+
+<p>Pretty simple - no new parsers or combinators in there.  If we change the <code>Assign</code> data constructor to use <code>String</code>, and alter <code>assign</code> to use <code>letters</code> instead of <code>letter</code>, we can now use arbitrary length variables in our assignment statements.</p>
+
+<pre><code class="language-Haskell">data Assign = Assign String Expression 
+	deriving Show
+
+assign :: Parser (String, Expression)
+assign = letters &lt;+-&gt; literal '=' &lt;+&gt; expression
+</code></pre>
+
+<pre><code class="language-Haskell">*Main&gt; parse "asdf=1"
+Assign "asdf" (Num '1')
+</code></pre>
+
+<p>We can something very simialr for multi-character numbers.  A few type changes later we can simply keep collecting numbers until <code>digit</code> fails.  We need to change the order of the alternatives in <code>factor</code> to avoid the greedy nature of <code>iter</code>.</p>
+
+<pre><code class="language-Haskell">data Expression = 
+  Num String 
+  | Add Expression Expression
+  | Sub Expression Expression
+  | Mul Expression Expression
+  | Div Expression Expression
+  deriving (Show) 
+
+factor :: Parser Expression
+factor = literal '(' &lt;-+&gt; expression &lt;+-&gt; literal ')'
+	 &lt;|&gt; digits &gt;&gt;&gt; Num
+
+digits :: Parser String
+digits = iter digit
+</code></pre>
+
+<p>And now we are starting to get somewhere.</p>
+
+<pre><code class="language-Haskell">*Main&gt; parse "asdf=(123+53)*5"
+Assign "asdf" (Mul (Add (Num "123") (Num "53")) (Num "5"))
+</code></pre>
+
+<h2 id="adding-whitespace">Adding whitespace</h2>
+
+<p>Now that we have <code>iter</code> we can write a function that chews up all the whitespace between the stuff we are interested in.  These things are generally called tokens so we will call our function <code>token</code>.</p>
+
+<pre><code class="language-Haskell">token :: Parser a -&gt; Parser a
+token = (&lt;+-&gt; iter space)
+</code></pre>
+
+<p>This uses <code>iter</code> in conjunction with <code>&lt;+-&gt;</code> which, as you will recall, drops the right hand side from the result.  We can use token like so:</p>
+
+<pre><code class="language-Haskell">assign :: Parser (String, Expression)
+assign = token(letters) &lt;+-&gt; token(literal '=') &lt;+&gt; expression
+
+expression :: Parser Expression
+expression = token(term) +&gt; expression'
+expression' e = addOp &lt;+&gt; term &gt;&gt;&gt; buildOp e +&gt; expression'
+            &lt;|&gt; result e
+
+factor :: Parser Expression
+factor = token number 
+	 &lt;|&gt; token (literal '(') &lt;-+&gt; token expr &lt;+-&gt; token (literal ')')
+	 &lt;|&gt; token var
+</code></pre>
+
+<p>If you also add <code>token</code> to <code>mulOp</code> and <code>addOp</code> you can now do even more amazing things like:</p>
+
+<pre><code class="language-Haskell">*Main&gt; parse "asdf = (123 + 53) * 5"
+Assign "asdf" (Mul (Add (Num "123") (Num "53")) (Num "5"))
+*Main&gt; parse "asdf = ( 123 + 53 ) * 5"
+Assign "asdf" (Mul (Add (Num "123") (Num "53")) (Num "5"))
+</code></pre>
+
+<h2 id="more-than-numbers-in-expressions">More than numbers in expressions</h2>
+
+<p>We have all the infrastucture to add variables into <code>Expression</code> so that we can write things like <code>a = x * y</code>.  First we will need to extend <code>Expression</code> to include a <code>Var</code> data constructor which takes a string similar to <code>Num</code>.  We will then need to figure out where <code>Var</code>s can be created - and seeing as they are stand ins for <code>Num</code> we can add a pattern to to <code>factor</code> to accomodate them.</p>
+
+<p>If you simply add the new pattern to <code>factor</code> you will run into some issues due to the way <code>iter</code> works. For the alternatives to be processed we need the parsers to return <code>Nothing</code> on failure but <code>iter</code> will never fail - rather it will return an empty list.  This was alluded to earlier when we needed to put the parenthesis checking before the number checking.  </p>
+
+<p>To make <code>iter</code> conform to our <code>Parser</code> type we will rewrite it to check if the result is an empty list then it should be return <code>Nothing</code>.  To do this we can pass the result of <code>iter</code> through our comparison combinator like so.</p>
+
+<pre><code class="language-Haskell">iter :: Parser Char -&gt; Parser String
+iter m = (iterS m) &lt;=&gt; (/="")
+iterS m = m &lt;+&gt; iterS m &gt;&gt;&gt; (\(x, y) -&gt; x:y)
+	 &lt;|&gt; result []
+</code></pre>
+
+<p>The one exception to using the new <code>iter</code> everywhere is <code>token</code> as is is optional space so it should not return a <code>Nothing</code>. <code>token</code> will need to use the sub <code>iterS</code>.</p>
+
+<pre><code class="language-Haskell">token :: Parser a -&gt; Parser a
+token = (&lt;+-&gt; iterS space)
+</code></pre>
+
+<p>Now we can write add the new pattern to <code>factor</code> safely.</p>
+
+<pre><code class="language-Haskell">data Expression = 
+  Num Integer 
+  | Var String
+  | Add Expression Expression
+  | Sub Expression Expression
+  | Mul Expression Expression
+  | Div Expression Expression
+  deriving (Show) 
+
+factor :: Parser Expression
+factor = token (literal '(') &lt;-+&gt; token(expression) &lt;+-&gt; token(literal ')')
+	 &lt;|&gt; digits &gt;&gt;&gt; Num
+	 &lt;|&gt; letters &gt;&gt;&gt; Var
+</code></pre>
+
+<p>And let's check that it looks good.</p>
+
+<pre><code class="language-Haskell">*Main Data.Char&gt; parse "a = 1 * y"
+Assign "a" (Mul (Num "1") (Var "y"))
+*Main Data.Char&gt; parse "alpha = 13 * ( yaxis + 234 )"
+Assign "alpha" (Mul (Num "13") (Add (Var "yaxis") (Num "234")))
+</code></pre>
+
+<h2 id="more-than-strings">More than strings</h2>
+
+<p>Sometimes we may want a parser to return something other than a string value.  For example we would prefer that <code>Num</code> use a real number rather than a string representation.  We have the transform combinator at our disposal so this is not really difficult to do.</p>
+
+<p>Because we now have a safe iterator being used in <code>digits</code> we can use <code>read</code> to convert the string to an integer.  I tried doing this before changing <code>iter</code> and the empty string was cases <code>read</code> to throw and unrecoverable exception. We could use <code>reads</code> which can be recovered from if it fails to read but it over complicates things a fair bit.  Now that <code>digits</code> is gaurenteed to return a string with at least one digit or <code>Nothing</code> we can safely use <code>read</code> and keep things simple.</p>
+
+<pre><code class="language-Haskell">data Expression = 
+  Num Integer 
+  | Var String
+  | Add Expression Expression
+  | Sub Expression Expression
+  | Mul Expression Expression
+  | Div Expression Expression
+  deriving (Show) 
+
+factor :: Parser Expression
+factor = token (literal '(') &lt;-+&gt; token(expression) &lt;+-&gt; token(literal ')')
+	 &lt;|&gt; number &gt;&gt;&gt; Num
+	 &lt;|&gt; letters &gt;&gt;&gt; Var
+
+number :: Parser Integer
+number = literal '-' &lt;-+&gt; digits &gt;&gt;&gt; (\n -&gt; -1 * (read n :: Integer) )
+     &lt;|&gt; digits &gt;&gt;&gt; (\n -&gt; read n :: Integer)
+</code></pre>
+
+<p>We've changed the <code>Num</code> data constructor to use and integer and created a new <code>number</code> parser that returns a <code>Parser</code> wrapped <code>Integer</code> using <code>read</code>.  This is then used in <code>factor</code> instead of the basic <code>digits</code>. I also slipped the ability to prefix a number with a sign allowing expressions such as <code>-1 * 4</code>.</p>
+
+<h2 id="more-than">More than...?</h2>
+
+<p>We've come a long way in this section. From single digit addition with no spacing to being able to use multicharacter terms and factors, adding in multiplication, parenthesis and variables and using whitespace to make the equations look nicer.  And it was all rather simple due to the combination of small simple functions.</p>
+		  
+		</div><!--close content_item-->
+      </div><!--close content-->   
+	</div><!--close site_content-->  	
+
+    <footer>
+	  <a href="index.html">Home</a> | <a href="singledigit.html">Single Digit Math</a> | <a href="combinators.html">Combinators</a> | <a href="more.html">More than addition</a> | <a href="contact.html">Contact</a><br/><br/>
+    </footer>
+	
+  </div><!--close main-->
+  
+  <!-- javascript at the bottom for fast page loading -->
+  <script type="text/javascript" src="js/jquery.min.js"></script>
+  <script type="text/javascript" src="js/image_slide.js"></script>
+  
+</body>
+</html>

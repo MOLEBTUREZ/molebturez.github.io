@@ -1,0 +1,393 @@
+<!DOCTYPE html> 
+<html>
+
+<head>
+  <title>Cism Compiler</title>
+  <meta name="description" content="website description" />
+  <meta name="keywords" content="website keywords, website keywords" />
+  <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
+  <link rel="stylesheet" type="text/css" href="css/style.css" />
+  <!-- modernizr enables HTML5 elements and feature detects -->
+  <script type="text/javascript" src="js/modernizr-1.5.min.js"></script>
+</head>
+
+<body>
+  <div id="main">		
+
+    <header>
+	  <div id="strapline">
+	    <div id="welcome_slogan">
+	      <h3>Welcome To CISM <span>Compiler</span></h3>
+	    </div><!--close welcome_slogan-->
+      </div><!--close strapline-->	  
+	  <nav>
+	    <div id="menubar">
+          <ul id="nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="introduction.html">Introduction</a></li>
+            <li><a href="singledigit.html">Single Digit Math</a></li>
+            <li class="current"><a href="combinators.html">Combinators</a></li>
+            <li><a href="more.html">More than addition</a></li>
+            <li><a href="contact.html">Contact Us</a></li>
+          </ul>
+        </div><!--close menubar-->	
+      </nav>
+    </header>
+    
+
+	<div id="site_content">		
+	  
+	  <div class="sidebar_container">       
+		<div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Let's build a compiler</h2>
+            <p>When looking for information on getting started with learning how to build an interpreter or compiler, inevitable two resources come up. First, the canonical compiler resource, the Dragon Book, and second, Let's Build a Compiler (LBaC) by Jack W. Crenshaw.</p>
+          </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->     		
+		<div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Latest Update</h2>
+            <h3>May 2017</h3>
+            <p>Pascal used to be cool back at 90s, programming is evolving each and everyday</p>         
+		  </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->		
+        <div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Contact</h2>
+            <p>Phone: +2771 078 3650</p>
+            <p>Email: <a href="mailto:nwumafconfessions@gmail.com">nwumafconfessions@gmail.com</a></p>
+          </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->
+       </div><!--close sidebar_container-->	
+	   
+	  <div id="content">
+        <div class="content_item">
+		  <h1 id="parser-combinators">Parser Combinators</h1>
+
+<p>First of all, let's define what a <strong>parser</strong> is:</p>
+
+<blockquote>
+  <p><a href="http://dictionary.reference.com/browse/parser">parse</a> - 3. Computers. to analyze (a string of characters) in order to associate groups of characters with the syntactic units of the underlying grammar. (<a href="http://dictionary.com">Dictionary.com</a>)</p>
+</blockquote>
+
+<p>And naturally a parser is something that performs a parse operation.  </p>
+
+<blockquote>
+  <p>A <strong>combinator</strong> is the "...use of a [Higher Order Function] as an infix operator in a function-definition..." 	(<a href="http://en.wikipedia.org/wiki/Parser_combinator">Parser Combinator - Wikipedia</a>)</p>
+</blockquote>
+
+<p>Practically speaking, the technique means that we write small <em>parser</em> functions that do one little thing, such as detect only digits, and return the result and the remainder of the input.</p>
+
+<p>We can then write <em>combinator</em> functions that take two parsers. The input is applied to the first parser, and the output of the first is (potentially) used in the second.</p>
+
+<p>Given the two parsers <code>digit</code> and <code>letter</code> and the two combinators <code>&lt;+&gt;</code> (for sequence) and <code>&lt;|&gt;</code> (for alternative), this means that we can write a parser for <code>identity</code> which is defined as a letter followed by a letter or a digit as:</p>
+
+<pre><code>identity = letter &lt;+&gt; (letter &lt;|&gt; digit)
+</code></pre>
+
+<p>Given the input <code>a2 the rest of the input</code> the general flow is (the specific implementation is slightly different):</p>
+
+<ol>
+  <li><code>letter</code> returns the pair <code>('a', "2 the rest of the input")</code></li>
+  <li><code>&lt;+&gt;</code> extracts the second item and puts it through the next parser</li>
+  <li><code>letter</code> is given <code>"2 the rest of the input"</code> which fails to detect a letter </li>
+  <li><code>&lt;|&gt;</code> sees that <code>letter</code> has failed so passes the input onto <code>digit</code></li>
+  <li><code>digit</code> returns the pair <code>(2, "the rest of the input")</code></li>
+  <li>Now that <code>&lt;+&gt;</code> has a result for both sides, it bundles the two success up into a pair and pairs that with the remaining input giving <code>(('a',2), "the rest of the input")</code></li>
+</ol>
+
+<p>If we were to try and write <code>identity</code> using our previous technique, it would be far more cumbersome and much harder to read the intent of the code.  As you can see, using combinators is a powerful and clean technique that makes the intent far more readable.</p>
+
+<h2 id="starting-again">Starting again</h2>
+
+<p>Okay, combinators are cool. So now that we know about this technique, let's put it to use in our own compiler.  We will be borrowing very heavily from Andersons paper <a href="http://www.cs.lth.se/EDA120/assignment4/parser.pdf">Parsing with Haskell</a> in the inital stages, starting from a blank slate and building up the ability to parse <code>expression</code>s again. We will keep our <code>Expression</code> data type.</p>
+
+<p>The first thing we need is a <code>Parser</code> type.  As we saw above, it should return a pair, with the first item being the result, and the second being the unused portion of the input.  However occasionally a parser may fail, and we need to know about that.  So we will wrap our pair in a <code>Maybe</code>. We won't stipulate what type the result should be, as it may be a <code>Integer</code>, a <code>String</code> etc. but the type of the parser will be the type of the success result. </p>
+
+<pre><code class="language-Haskell">type Parser a = String -&gt; Maybe (a, String)
+</code></pre>
+
+<p>Starting from the very basics again, we need a <code>Parser</code> that can parse a single character. We will need to start using type declarations on our parsers so that we can combine them all together.</p>
+
+<pre><code class="language-Haskell">char :: Parser Char
+char [] = Nothing
+char (x:xs) = Just(x, xs)
+</code></pre>
+
+<h2 id="our-first-combinator">Our first combinator</h2>
+
+<p>Rather than define a digit parser that explicitly tests for digits, we will define it as:</p>
+
+<pre><code class="language-Haskell">digit :: Parser Char
+digit = char &lt;=&gt; isDigit
+</code></pre>
+
+<p>We haven't defined <code>&lt;=&gt;</code> yet, but this will be the first combinator we write. <code>&lt;=&gt;</code> is essentially a boolean test operator.  This combinator will only return the result of the first Parser if, and only if, the result passes the boolean expression.  You can think of it as the same as <code>==</code>.</p>
+
+<pre><code class="language-Haskell">-- Given a parser and a predicate return the parser only if it satisfies the predicate.
+infix 7 &lt;=&gt; 
+(&lt;=&gt;) :: Parser a -&gt; (a -&gt; Bool) -&gt; Parser a 
+(parser &lt;=&gt; predicate) input =
+    case parser input of 
+        Nothing       -&gt; Nothing 
+        Just(a,rest)  -&gt; if (predicate a) then Just(a,rest) else Nothing
+</code></pre>
+
+<p>Because our parsers are a <code>Maybe</code> we need to handle both the <code>Nothing</code> and <code>Just</code> cases.  The <code>Nothing</code> case simply propogates the <code>Nothing</code>.  The important part of this definition is in the <code>Just</code> case.  It will return a <code>Just</code> containing the <code>parser</code> only if the value satifies the <code>predicate</code>.</p>
+
+<p>Using this we can define a couple more parsers that will be useful a bit further down the track. These two should be quite clear in what they do:</p>
+
+<pre><code class="language-Haskell">space :: Parser Char
+space = char &lt;=&gt; isSpace    
+
+letter :: Parser Char
+letter = char &lt;=&gt; isAlpha
+</code></pre>
+
+<p>And one that will be quite useful for checking for the <code>+</code> or <code>-</code> in our <code>Expression</code>s:</p>
+
+<pre><code class="language-Haskell">literal :: Char -&gt; Parser Char
+literal c = char &lt;=&gt; (==c)
+</code></pre>
+
+<h2 id="alternatives-combinator">Alternatives Combinator</h2>
+
+<p>This combinator will allow us to define two or more paths through a parse operation.  An example utility parser should explain it clearly.</p>
+
+<pre><code class="language-Haskell">alphanum :: Parser Char
+alphanum = digit &lt;|&gt; letter
+</code></pre>
+
+<p>I told you <code>letter</code> would be useful.  <code>&lt;|&gt;</code> operates like an <code>or</code>, that is, the result of <code>&lt;|&gt;</code>ing two or more parsers together is the first one that returns a successful result. </p>
+
+<pre><code class="language-Haskell">-- Combine two parsers using a 'or' type operation        
+infixl 3 &lt;|&gt;
+(&lt;|&gt;) :: Parser a -&gt; Parser a -&gt; Parser a 
+(parserA &lt;|&gt; parserB) input = 
+	case parserA input of 
+    	Nothing -&gt; parserB input 
+    	result -&gt; result
+</code></pre>
+
+<p>You might notice this time we used a left associative infix. This means that we can write <code>a &lt;|&gt; b &lt;|&gt; c</code> and it will logicaly return the first one that is a success. </p>
+
+<p>We also used a lower order of precedence - the higher the number the further down the order it sinks.  This means that we can write expressions such as <code>a &lt;=&gt; b &lt;|&gt; c</code> which will equate to <code>(a &lt;=&gt; b) &lt;|&gt; c</code>.</p>
+
+<h2 id="basic-assignment">Basic assignment</h2>
+
+<p>We now have enough parsers and combinators to be able to parse assignments of the form:</p>
+
+<p><code>assignment ::= &lt;letter&gt;=&lt;digit&gt;</code></p>
+
+<p>This will let us parse things such as <code>a=1</code>.  Pretty basic. Let's create an assignment type for this and a parser to recognise the form.</p>
+
+<pre><code class="language-Haskell">data Assign = Assign Char Expression 
+	deriving Show
+
+assign :: Parser ((Char, Char), Char)
+assign = letter &lt;+&gt; literal '=' &lt;+&gt; digit 
+</code></pre>
+
+<p>Now that reads almost exactly like the definition of assignment. The combinator <code>&lt;+&gt;</code> is a left associative sequence operator.  This will only apply the second parser if the first is succesful and will return the two successes combined in a pair.  Multiple applications of <code>&lt;+&gt;</code> will create nested pairs.</p>
+
+<pre><code class="language-Haskell">-- Combine two parser together pairing their results up in a tuple
+infixl 6 &lt;+&gt;
+(&lt;+&gt;) :: Parser a -&gt; Parser b -&gt; Parser (a, b)
+(parserA &lt;+&gt; parserB) input = 
+	case parserA input of
+	    Nothing -&gt; Nothing
+	    Just (resultA, remainder) -&gt; case parserB remainder of
+	        Nothing -&gt; Nothing
+        	Just (resultB, cs) -&gt; Just((resultA, resultB), cs)
+</code></pre>
+
+<p>We'll also need to write a function that uses our new <code>assign</code> parser to recognise a valid assignment and build an <code>Assign</code> data type from the results.</p>
+
+<pre><code class="language-Haskell">parse :: String -&gt; Assign
+parse s = Assign id expr
+    where (id, expr) = case assign s of 
+            Nothing -&gt; error "Invalid assignment"
+            Just (((a, _), b), _) -&gt; (a, (Num b)) -- the underscores represent the '=' which we don't need to keep
+</code></pre>
+
+<p>Great, but that extra '=' in the result of <code>assign</code> which just gets thrown away all the time is annoying me.  It makes more sense for <code>assign</code> to have the type <code>Parser (Char, Char)</code> so that it returns results in the form <code>(a,1)</code>.</p>
+
+<pre><code class="language-Haskell">parse :: String -&gt; Assign
+parse s = Assign id expr
+    where (id, expr) = case assign s of 
+            Nothing -&gt; error "Invalid assignment"
+            Just ((a, b), _) -&gt; (a, Num b)
+                   
+assign = letter &lt;+-&gt; literal '=' &lt;+&gt; digit  
+</code></pre>
+
+<p>We've refactored the new result format into <code>parse</code>, and the new combinator <code>&lt;+-&gt;</code> has been introduced into <code>assign</code>.  This combinator has the exact same semantics as <code>&lt;+&gt;</code> only it discards the second result.</p>
+
+<pre><code class="language-Haskell">-- Sequence operator that discards the second result 
+infixl 6 &lt;+-&gt; 
+(&lt;+-&gt; ) :: Parser a -&gt; Parser b -&gt; Parser a
+(parserA &lt;+-&gt;  parserB) input = 
+	case parserA input of
+	    Nothing -&gt; Nothing
+	    Just (resultA, remainder) -&gt; case parserB remainder of
+	        Nothing -&gt; Nothing
+	        Just (_, cs) -&gt; Just(resultA, cs)
+</code></pre>
+
+<p>And just for completeness, one that discards the first result and keeps only the second.</p>
+
+<pre><code>-- Sequence operator that discards the first result       
+infixl 6 &lt;-+&gt; 
+(&lt;-+&gt; ) :: Parser a -&gt; Parser b -&gt; Parser b
+(parserA &lt;-+&gt;  parserB) input = 
+	case parserA input of
+	    Nothing -&gt; Nothing
+	    Just (resultA, remainder) -&gt; case parserB remainder of
+	        Nothing -&gt; Nothing
+	        Just (resultB, cs) -&gt; Just(resultB, cs) 
+</code></pre>
+
+<p>We now have a the beginnings of a compiler that, while a bit longer than the previous attempt, is much simpler to read and definately far simpler to extend.  </p>
+
+<h1 id="combinatorial-expressions">Combinatorial Expressions</h1>
+
+<p>Let's recap our current definition of an expression.</p>
+
+<p><code>&lt;expression&gt; ::= &lt;term&gt;[&lt;addOperation&gt;&lt;term&gt;]*</code></p>
+
+<p><code>term</code> is defined as a single digit number and <code>addOperation</code> is defined as either <code>+</code> or <code>-</code>.  Using our existing combinators and parsers we can define a new <code>expression</code>.</p>
+
+<p>Starting simple we will write an <code>expression</code> parser that can only parse our single digits returning an <code>Expression</code> using the <code>Num</code> constructor.</p>
+
+<pre><code class="language-Haskell">expression :: Parser Expression
+expression = digit &gt;&gt;&gt; Num
+</code></pre>
+
+<p>We have a new combinator <code>&gt;&gt;&gt;</code> that means "transformed by" or "applied to".  This combinator will apply the given function or transformation if the parser returns a non-empty result.</p>
+
+<pre><code class="language-Haskell">-- Transform a parsers result
+infixl 5 &gt;&gt;&gt;
+(&gt;&gt;&gt;) :: Parser a -&gt; (a -&gt; b) -&gt; Parser b
+(parser &gt;&gt;&gt; transformer) input = 
+	case parser input of
+		Nothing -&gt; Nothing
+		Just (resultA, remainder) -&gt; Just ((transformer resultA), remainder)
+</code></pre>
+
+<p>We've chosen use a left associative infix operator and carefully chosen the weighting so that the result of combining sequences and alternatives will collectively be passed to the transformer.</p>
+
+<p>Testing this in GHCi will show that instead of getting a basic <code>Just('1', "")</code> that <code>digit</code> gives us we end up with <code>Just (Num '1',"")</code>.</p>
+
+<p>This can be pushed down to a <code>term</code> function so that we can create a new <code>expression</code> to handle binary addition or subtraction.  The obvious solution is implied by the definition.</p>
+
+<pre><code class="language-Haskell">expression = term &lt;+&gt; addOp &lt;+&gt; term 
+
+addOp :: Parser Char
+addOp = literal '+' &lt;|&gt; literal '-'
+</code></pre>
+
+<p>You might have notice that I left the type hint off <code>expression</code>. This was intentional as the current definition won't create a valid <code>Expression</code> although it will create a valid result that looks like:</p>
+
+<pre><code>*Main&gt; expression "1+1"
+Just (((Num '1','+'),Num '1'),"")
+</code></pre>
+
+<p>But we need to get that into something that looks like <code>Just ((Add (Num '1'), (Num '1')),"")</code>.  We can use our transform cobinator <code>&gt;&gt;&gt;</code> to pass the results to another function that will rip the previous result apart and build the format that we need.</p>
+
+<pre><code class="language-Haskell">expression :: Parser Expression
+expression = term &lt;+&gt; addOp &lt;+&gt; term &gt;&gt;&gt; buildOp
+
+buildOp ((termA, op), termB)
+	| op == '+' = Add termA termB
+	| op == '-' = Sub termA termB
+	| otherwise = expected "add operation"
+</code></pre>
+
+<p>In this definition <code>buildOp</code> uses some guards to figure out which operation to build, and also has a call to <code>expected</code>. Through the wonders of partial and first class functions, we can actually rewrite <code>addOp</code> to tell us which data constructor to use, which means <code>buildOp</code> gets simplified and won’t have a chance to fail.</p>
+
+<pre><code class="language-Haskell">
+addOp :: Parser (Expression -&gt; Expression -&gt; Expression)
+addOp = literal '+' &gt;&gt;&gt; (\_ -&gt; Add)
+    &lt;|&gt; literal '-' &gt;&gt;&gt; (\_ -&gt; Sub)
+
+buildOp :: ((Expression, Expression -&gt; Expression -&gt; Expression), Expression) -&gt; Expression
+buildOp ((expressionA, op), expressionB) = op expressionA expressionB
+</code></pre>
+
+<p>Here you can see the careful selection of infix weighting on the combinators coming to fruition.  In the definiton of <code>addOp</code> we use the alterantive and the transform combinators in a logical and clear to read manner.  </p>
+
+<h2 id="beyond-binary">Beyond binary</h2>
+
+<p>So that's binary. We have the basic process so now let's extend it to the n-ary version. We'll take a different approach to the first attempt. What we want to do is find the first <code>term</code> and then pass that onto a subfunction that continuosly builds an <code>Expression</code> based on the parsing <code>[&lt;addOp&gt;&lt;term&gt;]</code>. </p>
+
+<pre><code class="language-Haskell">expression :: Parser Expression
+expression = term +&gt; expression'
+expression' e = addOp &lt;+&gt; term &gt;&gt;&gt; buildOp e +&gt; expression'
+            &lt;|&gt; result e
+</code></pre>
+
+<p>This subfunction takes an <code>Expression</code>, parses out a <code>addOp</code> and another factor, passes the original <code>Expression</code>, the <code>addOp</code> and the new <code>term</code> into <code>buildOp</code> and then sends this new <code>Expression</code> through itself again in a recursive manner until it can no longer parse a <code>addOp</code> and <code>term</code> at which point it returns the <code>Expression</code> built so far.	</p>
+
+<p>We've introduced a new combinator <code>+&gt;</code> which can be though of as a reduction.  It will take everything on the left and apply the function on the right returning the raw result.  This is similar to <code>&gt;&gt;&gt;</code> which applies the function and returns the wrapped result, whereas <code>+&gt;</code> will unwrap the result.</p>
+
+<pre><code class="language-Haskell">-- Extract a parsers result	
+infix 4 +&gt;
+(+&gt;) :: Parser a -&gt; (a -&gt; Parser b) -&gt; Parser b
+(parser +&gt; function) input = 
+	case parser input of
+		Nothing -&gt; Nothing
+		Just (a, cs) -&gt; function a cs
+</code></pre>
+
+<p>Similarly <code>result</code> is a parser that simply returns what it is given wrapped up as a <code>Parser</code> type.  This lets us do things such as define default alternatives, or in this case, return the accumulated result. </p>
+
+<pre><code class="language-Haskell">result :: a -&gt; Parser a
+result a cs = Just(a,cs)
+</code></pre>
+
+<p>We also need to revisit <code>buildOp</code>.  This function now takes two parameters getting the new operation and factor as a pair. It’s a small shuffle so let’s quickly redefine it.</p>
+
+<pre><code class="language-Haskell">buildOp :: Expression -&gt; ((Expression -&gt; Expression -&gt; Expression), Expression) -&gt; Expression
+buildOp expressionA (op, expressionB) = op expressionA expressionB
+</code></pre>
+
+<p>There are a couple of added benefits to defining <code>expression</code> using the two parts.  We solved the left associative issue because the operations are built up on the way throught the parsing instead of all at the end.  Additionally we can now have single term expressions.</p>
+
+<h2 id="assignable-expressions">Assignable Expressions</h2>
+
+<p>In the previous chapter we defined <code>assign</code> using <code>digit</code> and had to use a data constructor directly in <code>parse</code> to get a valid <code>Assign</code>.  We can make some small changes to use any <code>Expression</code> on the right of <code>Assign</code>.</p>
+
+<pre><code class="language-Haskell">parse :: String -&gt; Assign
+parse s = Assign id expr
+    where (id, expr) = case assign s of 
+            Nothing -&gt; error "Invalid assignment"
+            Just ((a, b), _) -&gt; (a, b)
+
+assign :: Parser (Char, Expression)
+assign = letter &lt;+-&gt; literal '=' &lt;+&gt; expression
+</code></pre>
+
+<p>And now we can get some pretty good (and correct) results out of our parser.</p>
+
+<pre><code>*Main&gt; parse "a=1"
+Assign 'a' (Num '1')
+*Main&gt; parse "a=1+7-3"
+Assign 'a' (Sub (Add (Num '1') (Num '7')) (Num '3'))
+</code></pre>
+		  
+		</div><!--close content_item-->
+      </div><!--close content-->   
+	</div><!--close site_content-->  	
+
+    <footer>
+	  <a href="index.html">Home</a> | <a href="singledigit.html">Single Digit Math</a> | <a href="combinators.html">Combinators</a> | <a href="more.html">More than addition</a> | <a href="contact.html">Contact</a><br/><br/>
+    </footer>
+	
+  </div><!--close main-->
+  
+  <!-- javascript at the bottom for fast page loading -->
+  <script type="text/javascript" src="js/jquery.min.js"></script>
+  <script type="text/javascript" src="js/image_slide.js"></script>
+  
+</body>
+</html>

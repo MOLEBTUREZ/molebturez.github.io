@@ -1,0 +1,361 @@
+<!DOCTYPE html> 
+<html>
+
+<head>
+  <title>Cism Compiler</title>
+  <meta name="description" content="website description" />
+  <meta name="keywords" content="website keywords, website keywords" />
+  <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
+  <link rel="stylesheet" type="text/css" href="css/style.css" />
+  <!-- modernizr enables HTML5 elements and feature detects -->
+  <script type="text/javascript" src="js/modernizr-1.5.min.js"></script>
+</head>
+
+<body>
+  <div id="main">		
+
+    <header>
+	  <div id="strapline">
+	    <div id="welcome_slogan">
+	      <h3>Welcome To CISM <span>Compiler</span></h3>
+	    </div><!--close welcome_slogan-->
+      </div><!--close strapline-->	  
+	  <nav>
+	    <div id="menubar">
+          <ul id="nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="introduction.html">Introduction</a></li>
+            <li class="current"><a href="singledigit.html">Single Digit Math</a></li>
+            <li><a href="combinators.html">Combinators</a></li>
+            <li><a href="more.html">More than addition</a></li>
+            <li><a href="contact.html">Contact Us</a></li>
+          </ul>
+        </div><!--close menubar-->	
+      </nav>
+    </header>
+    
+
+	<div id="site_content">		
+	  
+	  <div class="sidebar_container">       
+		<div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Let's build a compiler</h2>
+            <p>When looking for information on getting started with learning how to build an interpreter or compiler, inevitable two resources come up. First, the canonical compiler resource, the Dragon Book, and second, Let's Build a Compiler (LBaC) by Jack W. Crenshaw.</p>
+          </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->     		
+		<div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Latest Update</h2>
+            <h3>May 2017</h3>
+            <p>Pascal used to be cool back at 90s, programming is evolving each and everyday</p>         
+		  </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->		
+        <div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Contact</h2>
+            <p>Phone: +2771 078 3650</p>
+            <p>Email: <a href="mailto:nwumafconfessions@gmail.com">nwumafconfessions@gmail.com</a></p>
+          </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->
+       </div><!--close sidebar_container-->	
+	   
+	  <div id="content">
+        <div class="content_item">
+		  <h1>SINGLE DIGIT MATH</h1> 
+          <p>Just about every programming language needs to support simple math primitives so it's a good place to start. This will let us get some results without having to worry about what or how the new language will look like just yet</p>
+            <br>
+        <p>We'll want to eventually parse a full mathematical expression such as <code>x = (y * 2^2) * (5 + b)</code> but there is a lot of ground to cover first.</p>
+          
+            <h2>A SINGLE DIGIT</h2>
+<p>The very simplist first step is to be able to recognise a single digit i.e. one of <code>0</code>..<code>9</code>.  This may sound boringly simple, but it will serve to set up a few basic processes first.</p>
+
+<p>To be able to parse anything we will need to read the input and determine whether it is a numerical digit.  To keep things simple we will simply return the digit if it is a digit or else print an error saying 'Digit expected'.  The <code>Data.Char</code> module holds many of the basic functions that we will need including one that convieniently determines if a string is a digit named <code>isDigit</code>.</p>
+
+    <pre><code class="language-haskell">-- Main.hs
+
+module Data.Char
+
+expected x = error $ x ++ " expected"
+
+expression x
+  | isDigit x = x
+  | otherwise = expected "Digit"
+</code></pre>
+
+<p>So we don't have to deal with reading and outputing files just yet we will make use of the interactive prompt that <a href="">GHCi</a> provides.  We can test our first 'compiler' like so:</p>
+
+<pre><code>Prelude&gt; :l Main.hs
+[1 of 1] Compiling Main             ( Main.hs, interpreted )
+Ok, modules loaded: Main.
+*Main&gt; expression '1'
+'1'
+*Main&gt; expression 'a'
+*** Exception: Digit expected
+</code></pre>
+
+<p>As you can see it meets our initial requirements - an exception is generated if we call <code>expression</code> with anything other than a digit.  </p>
+
+<h2>Binary expressions</h2>
+
+<p>Let's try something a little more difficult.  The next step is to be able to parse a simple binary expression which we will define as a single digit followed by add or minus and then another single digit.  Some examples:</p>
+
+<ul>
+  <li>1 + 1</li>
+  <li>5-4 </li>
+</ul>
+
+<p>More genericaly this can eb expressed as <code>&lt;term&gt; &lt;addOperation&gt; &lt;term&gt;</code>.  We will need to write a new <code>expression</code> to match our new definition that simply returns a string representation of what was input.  Our existing <code>expression</code> can be turned into <code>term</code> with some minor modification to explictly take a <code>Char</code> and return a string or <code>[Char]</code>.  </p>
+
+<pre><code class="language-Haskell">term x
+  | isDigit x = [x]
+  | otherwise = expected "Digit"
+
+addOperation x
+  | x == '+' = "+"
+  | x == '-' = "-"
+  | otherwise = expected "AddOp"
+
+expression (x:y:z:[]) = (term x) ++ (addOperation y) ++ (term z)
+</code></pre>
+
+<p>And testing this in GHCi gives the expected results:</p>
+
+<pre><code>*Main&gt; :l Main.hs
+[1 of 1] Compiling Main             ( Main.hs, interpreted )
+Ok, modules loaded: Main.
+*Main&gt; expression "1+1"
+"1+1"
+*Main&gt; expression "1*1"
+"1*** Exception: AddOp expected
+*Main&gt; expression "1+a"
+"1+*** Exception: Digit expected
+</code></pre>
+
+<p>You will notice that we defined <code>expression</code> to take exactly three character inputs only. Expressions with whitespace will fail. We'll deal with whitespace a little latter but out of curiosity let's see what happens.</p>
+
+<pre><code>*Main&gt; expression "1 + 1"
+"*** Exception: Main.hs:(14,1)-(17,35): Non-exhaustive patterns in function expression
+</code></pre>
+
+<h2 id="beyond-binary-operations">Beyond binary operations</h2>
+
+<p>We can generalise a binary expression into the virtually any number of <code>term</code>s using the following form:</p>
+
+<p><code>&lt;expression&gt; ::= &lt;term&gt;[&lt;addOperation&gt;&lt;term&gt;]*</code></p>
+
+<p>This defines an expression as a term followed by any number of +/- and digit pairs.  A recursive definition naturally leads to a recursive implemntation.</p>
+
+<pre><code class="language-Haskell">expression (x:[]) = term x
+expression (x:y:zs) = (term x) ++ (addOperation y) ++ (expression zs)
+</code></pre>
+
+<p>The implimentation is remarkable close to the definition.  Once again we will test our running implimentation in GHCi.</p>
+
+<pre><code>Prelude&gt; :l Main.hs
+[1 of 1] Compiling Main             ( Main.hs, interpreted )
+Ok, modules loaded: Main.
+*Main&gt; expression "1+1"
+"1+1"
+*Main&gt; expression "1+1+1"
+"1+1+1"
+*Main&gt; expression "1+1-2"
+"1+1-2"
+*Main&gt; expression "1+1-a"
+"1+1-*** Exception: Digit expected
+*Main&gt; expression "1+1*1"
+"1+1*** Exception: AddOp expected
+</code></pre>
+
+<h2 id="adding-types">Adding Types</h2>
+
+<p>Handling and managing the parsed content into strings is not going to very feasible for much longer.  We'll introduce some types to store our values that can then later be processed to produce the output needed, whether it be raw assembly or another target such as LLVM.</p>
+
+<p>Let's look back at our definition of an <code>expression</code></p>
+
+<p><code>&lt;expression&gt; ::= &lt;term&gt;[&lt;addOperation&gt;&lt;term&gt;]*</code></p>
+
+<p>Again a recursive definition leads to a recursive data type definition.  Our definiton says that we can have a single number, or we can add or subtract any two sub-expression.  This is quite literally expressed in the following data type.</p>
+
+<pre><code class="language-Haskell">data Expression = 
+  Num Int 
+  | Add Expression Expression
+  | Sub Expression Expression
+  deriving (Show) 
+</code></pre>
+
+<p>Now we can rework our functions to us the new type.  <code>term</code> is just wrapping the result in the new type.  Similarly <code>addOperation</code> is returning the appropriate value constructor.  <code>expression</code> will need to shuffle around to accomodate the argument ordering.</p>
+
+<pre><code class="language-Haskell">term x
+  | isDigit x = Num x
+  | otherwise = expected "Digit"
+
+addOperation x
+  | x == '+' = Add
+  | x == '-' = Sub
+  | otherwise = expected "AddOp"
+
+expression (x:[]) = term x
+expression (x:y:zs) = (addOperation y) (expression [x]) (expression zs)
+</code></pre>
+
+<p>Let’s play with it in GHCi and see what results we have now.</p>
+
+<pre><code>Prelude&gt; :l Main.hs
+[1 of 1] Compiling Main             ( Main.hs, interpreted )
+Ok, modules loaded: Main.
+*Main&gt; expression "1+1-2"
+Add (Num '1') (Sub (Num '1') (Num '2'))
+*Main&gt; expression "1+1*2"
+Add (Num '1') *** Exception: AddOp expected
+*Main&gt; expression "1+a"
+Add (Num '1') *** Exception: Digit expected
+</code></pre>
+
+<p>Those with a lisp background, or any of it’s variants, might be having a light bulb moment seeing that output.  </p>
+
+<h1 id="code-generation">Code generation</h1>
+
+<p>Our parsing is not very useful bound up in some Haskell types.  We can write a very simple code generator to emit what we can currently handle.  Our code generator will need to take an <code>Expression</code> and recursively traverse the tree and build up a string.  We start by converting it back into the same infix string again.</p>
+
+<pre><code class="language-Haskell">emit expr = case expr of
+  Num x -&gt; [x]
+  Add x y -&gt; emit x ++ " + " ++ emit y
+  Sub x y -&gt; emit x ++ " - " ++ emit y
+</code></pre>
+
+<p>Which will produce output similar to:</p>
+
+<pre><code>Prelude&gt; :l Main.hs
+[1 of 1] Compiling Main             ( Main.hs, interpreted )
+Ok, modules loaded: Main.
+*Main&gt; let e = expression "1+1+3"
+*Main&gt; e
+Add (Num '1') (Add (Num '1') (Num '3'))
+*Main&gt; emit e
+"1 + 1 + 3"
+*Main&gt; emit (expression "1+1-2")
+"1 + 1 - 2"
+</code></pre>
+
+<p>Congratulations - you’ve made a ‘pretty-printer’ for a very small subset of math.</p>
+
+<h2 id="generating-assembly">Generating Assembly</h2>
+
+<aside class="col-xs-12 col-sm-4 pull-right well">
+<strong>A note on assembly</strong>
+
+<p>There are a couple of variants of x86 assembly syntax versions and even more Assemblers.  As I will be using NASM, the syntax I am using throughout most of this is based on thr Intel variant as used by NASM.</p>
+</aside>
+
+<p>The most basic assembly we can do is use registers to store each <code>term</code> in and then use these as the input to <code>ADD</code> or <code>SUB</code> as needed.  The order of operations are:</p>
+
+<ul>
+  <li>Move the first term into <code>eax</code></li>
+  <li>Move the value of <code>eax</code> to <code>ebx</code></li>
+  <li>Move the second term into <code>eax</code></li>
+  <li>Add or subtract <code>ebx</code> from <code>eax</code> leaving the result in <code>eax</code></li>
+</ul>
+
+<p>We'll start with a couple helper methods to do write and format the assembly instructions. </p>
+
+<pre><code class="language-Haskell">emitLn s = "\t" ++ s ++ "\n"
+
+add = emitLn "ADD eax, ebx"
+sub = emitLn "SUB eax, ebx" ++ emitLn "NEG eax"
+pushEax = emitLn "MOV ebx, eax"
+</code></pre>
+
+<p>A minor implementation note for subtraction is the fact that subtraction is not communicative.  <code>1-2</code> is not the same as <code>2-1</code>.  Because we want to always leave the result in <code>eax</code> and <code>SUB</code> (and <code>ADD</code>) will leave the result in the first register we will actually end up executing the subtraction in the reverse. However there is a easy trick to make subtraction almost communicative - simply negate the result. </p>
+
+<p>We'll write a new <code>emitAsm</code> function to generate our code using the above functions.  We'll also throw in a function to parse and emit in one go.</p>
+
+<pre><code class="language-Haskell">emitAsm expr = case expr of 
+  Num a   -&gt; emitLn ("MOV eax, " ++ [a])
+  Add a b -&gt; emitAsm a ++  pushEax ++ emitAsm b ++ add
+  Sub a b -&gt; emitAsm a ++  pushEax ++ emitAsm b ++ sub
+
+parseAndEmit = emitAsm . expression
+</code></pre>
+
+<p>If you test this in GHCi with only two term expressions such as <code>4+6</code> or <code>8-3</code> you can manually verify the generated asembly is correct.  But as soon as you try more than two terms you will notice that it produces incorrect results.  For example <code>1-2+2</code> will produce <code>-2</code> instead of the expected <code>1</code>.  </p>
+
+<pre><code>*Main&gt; putStr $ parseAndEmit "1-2+2"
+  MOV eax, 1      ; eax = 1
+  MOV ebx, eax    ; ebx = 1
+  MOV eax, 2      ; eax = 2  
+  MOV ebx, eax    ; ebx = 2 -- Oops we just clobbered the 1!
+  MOV eax, 2        ; eax = 2
+  ADD eax, ebx        ; eax = 2 + 2 = 4
+  SUB eax, ebx        ; eax = 4 - 2 = 2
+  NEG eax       ; eax = -2
+</code></pre>
+
+<h2 id="stacking-it-up">Stacking it up</h2>
+
+<p>The  intermediate instructions are built up in a tree format, that when flattened, come out in a format very similar to reverse polish notation or RPN.  RPN is most commonly executed using a stack - terms are <code>push</code>ed onto the stack and when an operand is encountered the terms are <code>pop</code>ed off to use with the operator.  And that's exactly how we will write our asm.</p>
+
+<p>We can store an arbitraty number of items on the stack in a last-in first-out manner.  It is a relatively minor change to the existing code to use the stack. Instead of moving <code>eax</code> into <code>ebx</code> we <code>PUSH</code> it onto the stack.  Then <code>add</code> and <code>sub</code> simply <code>POP</code> the top term off before doing their calculations.</p>
+
+<pre><code class="language-Haskell">popEbx = emitLn "POP ebx"
+pushEax = emitLn "PUSH eax"
+add = popEbx ++ emitLn "ADD eax, ebx"
+sub = popEbx ++ emitLn "SUB eax, ebx" ++ emitLn "NEG eax"
+</code></pre>
+
+<p><code>emitAsm</code> remains unchanged. And now the generated assembly will calculate the correct result if we lived in a right associative world i.e. <code>1-2+2</code> is interpretted as <code>1-(2+2)</code></p>
+
+<pre><code>*Main&gt; putStr $ parseAndEmit "1-2+2"
+  MOV eax, 1    ; eax = 1
+  PUSH eax      ; stack = 1
+  MOV eax, 2    ; eax = 2
+  PUSH eax    ; stack = 2,1
+  MOV eax, 2    ; eax = 2
+  POP ebx     ; ebx = 2, stack = 1
+  ADD eax, ebx  ; eax = 2 + 2 = 4
+  POP ebx     ; ebx = 1, stack=&lt;empty&gt;
+  SUB eax, ebx    ; eax = 4 - 1 = 3
+  NEG eax
+</code></pre>
+
+<h2 id="living-in-a-left-associative-world">Living in a left associative world</h2>
+
+<p>Unfortunately the math that the majority of us know is left associative.  This means that <code>1-2+2</code> is commonly interpretted as <code>(1-2)+2</code> resulting in <code>1</code>.  There is actually a simple approach to acheiving this - we look one more character ahead and build the left side first.<br />
+~~~ Haskell
+expression (x:[]) = term x
+expression (a:b:c:d:ds) = (addOperation d) (expression [a,b,c]) (expression ds)
+expression (x:y:zs) = (addOperation y) (expression [x]) (expression zs)
+~~~</p>
+
+<p><strong>N.B</strong> You must add the new <code>expression</code> before the previous one that handled 3 terms.</p>
+
+<p>This will, finally, give us the correct results for 3 terms in an expression, but what about 4:</p>
+
+<pre><code>*Main&gt; expression "1-2+2"
+Add (Sub (Num '1') (Num '2')) (Num '2') -- Add (-1, 2) = 2
+*Main&gt; expression "1-2-5-2"
+Sub (Sub (Num '1') (Num '2')) (Sub (Num '5') (Num '2')) -- Sub (-1, 3) = -4 !? Should be -8
+</code></pre>
+
+<p>We could go and add another <code>expression</code> to handle 4 terms but what about 5, 6, 9...  Clearly this approach is not sustainable and we will need to find another technique.</p>
+
+
+	  
+		  
+		  
+		</div><!--close content_item-->
+      </div><!--close content-->   
+	</div><!--close site_content-->  	
+
+    <footer>
+	  <a href="index.html">Home</a> | <a href="singledigit.html">Single Digit Math</a> | <a href="combinators.html">Combinators</a> | <a href="more.html">More than addition</a> | <a href="contact.html">Contact</a><br/><br/>
+    </footer>
+	
+  </div><!--close main-->
+  
+  <!-- javascript at the bottom for fast page loading -->
+  <script type="text/javascript" src="js/jquery.min.js"></script>
+  <script type="text/javascript" src="js/image_slide.js"></script>
+  
+</body>
+</html>
